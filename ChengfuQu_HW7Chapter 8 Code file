@@ -1,0 +1,113 @@
+USE TSQLV6;
+--Question 1
+DROP TABLE IF EXISTS dbo.Customers;
+
+CREATE TABLE dbo.Customers
+(
+  custid      INT          NOT NULL PRIMARY KEY,
+  companyname NVARCHAR(40) NOT NULL,
+  country     NVARCHAR(15) NOT NULL,
+  region      NVARCHAR(15) NULL,
+  city        NVARCHAR(15) NOT NULL  
+);
+INSERT INTO dbo.Customers (custid, companyname, country, region, city)
+VALUES(100, 'Coho Winery','USA', 'WA', 'Redmond' );
+
+INSERT INTO dbo.Customers (custid, companyname, country, region, city)
+SELECT DISTINCT sc.custid, companyname, country, region, city
+FROM Sales.Customers  sc
+	INNER JOIN Sales.Orders so
+		on sc.custid = so.custid;
+
+		
+DROP TABLE IF EXISTS dbo.Orders;
+		SELECT orderid, orderdate, empid, custid, shipcountry, shipcity,shipregion
+		INTO dbo.Orders
+		FROM Sales.Orders as so
+		WHERE so.orderdate >= ('2020-01-01') AND so.orderdate <= ('2022-12-31')
+
+--Question 2
+DELETE FROM dbo.Orders
+OUTPUT DELETED.orderid, DELETED.orderdate
+WHERE dbo.Orders.orderdate <('2020-08-01')
+
+--Question 3
+DELETE FROM do
+FROM dbo.Orders do
+INNER JOIN dbo.Customers dc
+	on do.custid = dc.custid
+WHERE dc.country = N'Brazil'
+
+
+--Question 4
+SELECT * FROM dbo.Customers;
+
+UPDATE dbo.Customers
+SET region = '<None>'
+OUTPUT DELETED.custid, DELETED.region as oldregion, INSERTED.region as newregion
+WHERE region IS NULL
+
+--Question 5
+UPDATE dbo.Orders
+SET shipcountry = country, 
+	shipregion= region,
+	shipcity = city 
+	--Setting up the matching
+	FROM dbo.Customers JOIN dbo.Orders
+		ON dbo.Orders.custid = dbo.Customers.custid
+	WHERE dbo.Customers.country = N'UK';
+	--Conditions. 
+
+--Question 6 
+USE TSQLV6;
+
+DROP TABLE IF EXISTS dbo.OrderDetails, dbo.Orders;
+
+CREATE TABLE dbo.Orders
+(
+  orderid        INT          NOT NULL,
+  custid         INT          NULL,
+  empid          INT          NOT NULL,
+  orderdate      DATE         NOT NULL,
+  requireddate   DATE         NOT NULL,
+  shippeddate    DATE         NULL,
+  shipperid      INT          NOT NULL,
+  freight        MONEY        NOT NULL
+    CONSTRAINT DFT_Orders_freight DEFAULT(0),
+  shipname       NVARCHAR(40) NOT NULL,
+  shipaddress    NVARCHAR(60) NOT NULL,
+  shipcity       NVARCHAR(15) NOT NULL,
+  shipregion     NVARCHAR(15) NULL,
+  shippostalcode NVARCHAR(10) NULL,
+  shipcountry    NVARCHAR(15) NOT NULL,
+  CONSTRAINT PK_Orders PRIMARY KEY(orderid)
+);
+CREATE TABLE dbo.OrderDetails
+(
+  orderid   INT           NOT NULL,
+  productid INT           NOT NULL,
+  unitprice MONEY         NOT NULL
+    CONSTRAINT DFT_OrderDetails_unitprice DEFAULT(0),
+  qty       SMALLINT      NOT NULL
+    CONSTRAINT DFT_OrderDetails_qty DEFAULT(1),
+  discount  NUMERIC(4, 3) NOT NULL
+    CONSTRAINT DFT_OrderDetails_discount DEFAULT(0),
+  CONSTRAINT PK_OrderDetails PRIMARY KEY(orderid, productid),
+  CONSTRAINT FK_OrderDetails_Orders FOREIGN KEY(orderid)
+    REFERENCES dbo.Orders(orderid),
+  CONSTRAINT CHK_discount  CHECK (discount BETWEEN 0 AND 1),
+  CONSTRAINT CHK_qty  CHECK (qty > 0),
+  CONSTRAINT CHK_unitprice CHECK (unitprice >= 0)
+);
+GO
+
+INSERT INTO dbo.Orders SELECT * FROM Sales.Orders;
+INSERT INTO dbo.OrderDetails SELECT * FROM Sales.OrderDetails;
+
+--Chpater 1 
+ALTER TABLE dbo.OrderDetails
+	DROP CONSTRAINT FK_OrderDetails_Orders
+TRUNCATE Table dbo.Orders
+TRUNCATE Table dbo.OrderDetails
+
+DROP TABLE IF EXISTS dbo.OrderDetails, dbo.Orders, dbo.Customers;
